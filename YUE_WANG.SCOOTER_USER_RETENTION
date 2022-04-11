@@ -1,0 +1,36 @@
+CREATE OR REPLACE TABLE YUE_WANG.SCOOTER_USER_RETENTION AS(
+WITH new_user AS (
+    SELECT rider_id
+    ,MIN(START_TIME_LOCAL) AS first_login
+    FROM "APPLICANTS"."YUE_WANG"."RIDE_CORE"
+    GROUP BY rider_id
+),
+
+next_times AS (
+    SELECT a.rider_id
+          ,a.first_login
+          ,b.START_TIME_LOCAL AS next_time
+    FROM new_user a
+    LEFT JOIN "APPLICANTS"."YUE_WANG"."RIDE_CORE"b
+    ON a.rider_id = b.rider_id
+    AND b.START_TIME_LOCAL > a.first_login)
+    ,
+
+timediff AS (
+    SELECT rider_id
+          ,to_date(first_login) as first_login_date
+          ,to_date(next_time) as next_time_login_date
+          ,DATEDIFF(day,first_login_date,next_time_login_date) AS diff_days
+    FROM next_times)
+
+SELECT 
+    --rider_id,
+    first_login_date
+    --next_time_login_date,
+    ,CONCAT(ROUND(COUNT(CASE WHEN diff_days = 1 THEN rider_id ELSE NULL END)/COUNT(rider_id), 4)*100, '%') AS next_day_user_retention_rate
+    ,CONCAT(ROUND(COUNT(CASE WHEN diff_days = 7 THEN rider_id ELSE NULL END)/COUNT(rider_id), 4)*100, '%') AS seven_day_user_retention_rate
+    ,CONCAT(ROUND(COUNT(CASE WHEN diff_days = 30 THEN rider_id ELSE NULL END)/COUNT(rider_id), 4)*100, '%') AS thirty_day_user_retention_rate
+   FROM timediff
+   GROUP BY 1
+   ORDER BY 1
+   );
